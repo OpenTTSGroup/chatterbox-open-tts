@@ -1,0 +1,47 @@
+.git/
+.github/
+.gitignore
+.gitmodules
+
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+.idea/
+.vscode/
+.DS_Store
+
+cache/
+voices/
+tests/
+docs/
+scripts/
+
+*.log
+
+# Root-level docs are not needed inside the image — but do NOT use a blanket
+# ``*.md`` rule: the Chatterbox pyproject.toml references ``engine/README.md``
+# and ``engine/LICENSE``, so those two must survive into the build context.
+/README.md
+/README.zh.md
+/LICENSE
+
+# engine/ submodule: strip what the pip install does not need at build time.
+# Keep engine/pyproject.toml, engine/src/, engine/README.md, engine/LICENSE.
+engine/.git*
+engine/.github/
+engine/example_*.py
+engine/gradio_*.py
+engine/multilingual_app.py
+engine/*.jpg
+engine/*.jpeg
+engine/*.png
+engine/FAQ.md

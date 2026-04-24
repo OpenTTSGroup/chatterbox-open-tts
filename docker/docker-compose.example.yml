@@ -1,0 +1,29 @@
+services:
+  chatterbox:
+    image: ghcr.io/openttsgroup/chatterbox-open-tts:latest
+    container_name: chatterbox-open-tts
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./voices:/voices:ro
+      - ./cache:/root/.cache
+    environment:
+      CHATTERBOX_VARIANT: "multilingual"
+      CHATTERBOX_DEFAULT_LANGUAGE: "en"
+      LOG_LEVEL: "info"
+      # Uncomment to let browsers call the API from any origin:
+      # CORS_ENABLED: "true"
+      # Uncomment to fall back to CPU on a host without NVIDIA drivers:
+      # CHATTERBOX_DEVICE: "cpu"
+      # CHATTERBOX_DTYPE: "float32"
+      # Uncomment to swap to the English-only turbo or standard variants:
+      # CHATTERBOX_VARIANT: "turbo"
+      # CHATTERBOX_VARIANT: "standard"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
