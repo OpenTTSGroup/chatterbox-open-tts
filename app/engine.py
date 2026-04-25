@@ -9,6 +9,7 @@ from collections import OrderedDict
 from typing import Optional
 
 import numpy as np
+import torch
 
 from app.config import Settings
 
@@ -38,6 +39,22 @@ _APPLICABLE_KWARGS: dict[str, frozenset[str]] = {
 def _default_exaggeration(variant: str) -> float:
     # Matches the generate() signatures in engine/src/chatterbox/*.py.
     return 0.0 if variant == "turbo" else 0.5
+
+
+def _clone_conds(conds):
+    # Conditionals/T3Cond hold tensors that may be non-leaf (e.g. produced by
+    # weight_norm-wrapped layers during generate()), which copy.deepcopy refuses
+    # to handle. Walk the dataclass shape ourselves and detach+clone each tensor.
+    def _clone_value(v):
+        if torch.is_tensor(v):
+            return v.detach().clone()
+        return copy.deepcopy(v)
+
+    new_t3 = type(conds.t3)(
+        **{k: _clone_value(v) for k, v in conds.t3.__dict__.items()}
+    )
+    new_gen = {k: _clone_value(v) for k, v in conds.gen.items()}
+    return type(conds)(new_t3, new_gen)
 
 
 # Default HuggingFace repo id per variant. Mirrors the REPO_ID constants
@@ -90,7 +107,7 @@ class ChatterboxEngine:
             )
         # Snapshot the shipped default speaker so it can be restored after any
         # file-voice call overwrites self._model.conds.
-        self._default_conds = copy.deepcopy(self._model.conds)
+        self._default_conds = _clone_conds(self._model.conds)
 
         self._conds_cache: "OrderedDict[tuple, object]" = OrderedDict()
         self._cache_lock = threading.Lock()
@@ -232,14 +249,14 @@ class ChatterboxEngine:
             if kind == "builtin":
                 # Restore the shipped default speaker (may have been overwritten
                 # by a previous file-voice request).
-                self._model.conds = copy.deepcopy(self._default_conds)
+                self._model.conds = _clone_conds(self._default_conds)
             else:  # clone
                 assert ref_audio is not None
                 if ref_mtime is not None:
                     cache_key = self._make_cache_key(ref_audio, ref_mtime, kwargs)
                     cached = self._cache_get(cache_key)
                     if cached is not None:
-                        self._model.conds = copy.deepcopy(cached)
+                        self._model.conds = _clone_conds(cached)
                     else:
                         audio_prompt_path = ref_audio
                 else:
@@ -271,7 +288,7 @@ class ChatterboxEngine:
                 and self._model.conds is not None
             ):
                 try:
-                    snapshot = copy.deepcopy(self._model.conds)
+                    snapshot = _clone_conds(self._model.conds)
                     self._cache_put(cache_key, snapshot)
                 except Exception:  # pragma: no cover
                     log.exception(
